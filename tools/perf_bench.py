@@ -382,8 +382,13 @@ def validate_benchmark_args(args):
         raise ValueError("server-bots must be >= 0")
     if args.server_bots and not args.server:
         raise ValueError("--server-bots requires --server")
-    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.label):
-        raise ValueError("label must be 1-80 characters: letters, digits, dot, underscore or hyphen; start with a letter or digit")
+    if not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.label
+    ):
+        raise ValueError(
+            "label must be 1-80 characters: letters, digits, dot, underscore or hyphen; "
+            "start with a letter or digit"
+        )
 
 
 def size_label(label, width, height):
@@ -395,7 +400,7 @@ def size_label(label, width, height):
 
 def scene_list(args):
     """(name, from, to, pitch) of the scenes asked for: the flights, then the stress scenes ("stress" is all of them)."""
-    picked = args.scenes.split(",") if args.scenes else [s[0] for s in SCENES]
+    picked = [s.strip() for s in args.scenes.split(",")] if args.scenes else [s[0] for s in SCENES]
     if "stress" in picked:
         picked += stress_scenes.NAMES
     # --server-bots adds the crowd scene over the bots.
