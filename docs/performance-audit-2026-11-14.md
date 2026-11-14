@@ -87,6 +87,20 @@ These code paths already contain substantial optimizations. A broad rewrite, arb
 
 The final input review found one alias-expansion case beyond literal duplicate detection: selecting `stress` together with an individual member such as `stress_mobs` caused that stress scene to be selected twice. `validate_benchmark_args` now rejects that overlap before the run begins, and the regression cases cover both argument orders. The repository tests have not yet been executed in this session.
 
+## Seven-phase delivery tracker
+
+| Phase | Real state | Completion gate |
+|---|---|---|
+| 1. Rust architecture audit | **Partial.** The renderer/streaming paths in `streaming.rs`, `world.rs`, `chunk_map.rs`, `mesher.rs` and `gfx.rs` were inspected; this is not yet a full workspace architecture audit. | Finish the dependency/ownership map and review the remaining performance-critical crates with current build/test evidence. |
+| 2. Benchmark and metrics lab | **Partial.** Benchmark input validation was hardened, regression tests were added, and historical comparable RTX 4080 reports were analyzed. The current branch has not been benchmarked. | Execute the repository tests and a repeatable current-commit A/B suite; preserve FPS, 1%/0.1% lows, CPU/GPU time, RSS and startup reports. |
+| 3. CPU optimization | **Not started.** No current-commit CPU profile identifies a safe hotspot yet. | Capture profiles for mountain/RD12 and ocean/RD32, then optimize only a demonstrated hotspot and remeasure. |
+| 4. GPU/render optimization | **Not started.** No current-commit GPU capture or backend-specific trace exists. | Capture GPU timings/counters for the regression scenes and compare before/after without degrading frame-time tails. |
+| 5. Memory, loading and chunks | **Not started as an optimization phase.** Existing streaming/chunk architecture was inspected and historical RSS is favourable, but no current-commit memory/load profile was measured. | Measure current RSS/allocations, chunk generation/meshing and startup; preserve or improve the historical memory/startup envelope. |
+| 6. Rust versus C++ experiment | **Not started; intentionally not justified yet.** No profiled CPU hotspot currently warrants FFI complexity. | Only prototype C++ after Phase 3 isolates a hotspot; compare equivalent work including FFI and data-transfer overhead. |
+| 7. Final regression and compatibility audit | **Pending.** The PR has not passed the repository's CI or current-branch performance gates. | Run `pr_ready.py`, Python tests, Rust fmt/Clippy/tests/builds, applicable parity checks and final A/B benchmarks; resolve every failure before marking ready. |
+
+Do not merge or describe the optimization project as complete while any required gate above remains open. This branch currently contains benchmark-harness and CI-enablement fixes, not a measured engine hot-path optimization.
+
 ## Current branch verification status
 
 The current branch work so far changes benchmark input validation and the direct-test entrypoint. The input-validation tests have been added, the direct `unittest.main()` guard is now after all test classes, and every resolution-derived report label is checked against the same length rule used by `--table`.
