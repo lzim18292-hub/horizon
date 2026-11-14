@@ -120,6 +120,18 @@ class OwnRunnerTests(unittest.TestCase):
         # Never skipped: GitHub counts a skipped required check as passed.
         self.assertIn("if: always()", ci["verify"])
 
+    def test_fork_repository_uses_github_hosted_runners_for_its_own_pull_requests(self):
+        ci = dict(jobs((WORKFLOWS / "ci.yml").read_text()))
+        # The private runner fleet belongs to horizon-rust/horizon, not to a fork's copy.
+        for part in ("verify-tree", "verify-lint", "verify-test", "launcher"):
+            with self.subTest(part=part):
+                value = runs_on(ci[part])
+                self.assertIn("github.repository == 'horizon-rust/horizon'", value)
+                self.assertIn("|| 'ubuntu-24.04'", value)
+        parity = runs_on(ci["parity-scope"])
+        self.assertIn("github.repository == 'horizon-rust/horizon'", parity)
+        self.assertIn("|| 'ubuntu-latest'", parity)
+
     def test_forks_never_wait_for_our_checks_runners(self):
         # A fork's run sees no repository variable, so SELF_HOSTED_CI can't send it elsewhere when the desktop is off:
         # every job that may pick horizon-checks on a pull request picks it only for this repository's own branches.
