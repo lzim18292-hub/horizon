@@ -87,10 +87,13 @@ These code paths already contain substantial optimizations. A broad rewrite, arb
 
 The current branch work so far changes benchmark input validation and the direct-test entrypoint. The input-validation tests have been added, the direct `unittest.main()` guard is now after all test classes, and every resolution-derived report label is checked against the same length rule used by `--table`.
 
-However, the connected GitHub API currently returns no Actions runs for the branch/PR and no commit status checks for the latest commit. No Desktop Commander device is connected, and this session has no repository-local Rust/Python checkout. Therefore:
+The fork initially inherited CI runner selectors intended for the canonical `horizon-rust/horizon` repository. Because PR #1 is opened inside this fork, the original expressions selected private `horizon-checks` and `horizon-light` runners that the fork does not own. This branch now gates those five normal CI selectors on `github.repository == 'horizon-rust/horizon'`, so forks use GitHub-hosted Ubuntu runners; `tests/test_ci_runners.py` includes a regression test for this routing.
+
+Even after that correction, the GitHub API still reports zero Actions workflow runs for the branch and zero commit checks. The API connector does not expose repository Actions settings or workflow dispatch, so whether Actions are disabled or the PR run is awaiting approval cannot be established from this session. No Desktop Commander device is connected, and this session cannot clone GitHub directly (the execution environment has no DNS/network route to github.com). Therefore:
 
 - Python unit tests: **not executed here**.
 - `tools/pr_ready.py`: **not executed here**.
+- CI runner selection: **patched in the fork and regression test added; GitHub Actions execution still not observed**.
 - Rust formatting, Clippy, crate tests and game build: **not executed here**.
 - Current-commit FPS/CPU/GPU/memory benchmark: **not executed here**.
 - PR remains a draft; do not merge until the project checks pass.
