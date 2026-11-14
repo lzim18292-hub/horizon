@@ -314,8 +314,99 @@ SIZES = [(1280, 720), (1920, 1080)]
 
 
 def parse_sizes(text):
-    """"1280x720,1920x1080" as [(1280, 720), (1920, 1080)]."""
-    return [tuple(int(v) for v in size.lower().split("x")) for size in text.split(",") if size]
+    """Parse unique, positive WIDTHxHEIGHT pairs."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("sizes must contain at least one WIDTHxHEIGHT pair")
+    sizes = []
+    for item in text.split(","):
+        item = item.strip()
+        match = re.fullmatch(r"([0-9]+)[xX]([0-9]+)", item)
+        if not match:
+            raise ValueError(f"invalid window size {item!r}; expected WIDTHxHEIGHT")
+        width, height = (int(value) for value in match.groups())
+        if width <= 0 or height <= 0:
+            raise ValueError(f"window dimensions must be positive: {item!r}")
+        size = (width, height)
+        if size in sizes:
+            raise ValueError(f"duplicate window size: {item!r}")
+        sizes.append(size)
+    return sizes
+
+
+def parse_distances(text):
+    """Parse unique positive render distances."""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("distances must contain at least one positive integer")
+    distances = []
+    for item in text.split(","):
+        item = item.strip()
+        if not re.fullmatch(r"[0-9]+", item):
+            raise ValueError(f"invalid render distance {item!r}; expected a positive integer")
+        distance = int(item)
+        if distance <= 0:
+            raise ValueError(f"render distance must be positive: {item!r}")
+        if distance in distances:
+            raise ValueError(f"duplicate render distance: {distance}")
+        distances.append(distance)
+    return distances
+
+
+def validate_label(label):
+    """Keep report labels safe as single filename components."""
+    if not isinstance(label, str) or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", label
+    ):
+        raise ValueError(
+            "label must be 1-80 characters: letters, digits, dot, underscore or hyphen; "
+            "start with a letter or digit"
+        )
+
+
+def validate_benchmark_args(args):
+    """Reject invalid benchmark inputs before creating work files or launching games."""
+    sizes = parse_sizes(args.sizes)
+    parse_distances(args.distances)
+
+    if args.scenes is not None:
+        selected = [scene.strip() for scene in args.scenes.split(",")]
+        if not selected or any(not scene for scene in selected):
+            raise ValueError("scenes must be a non-empty comma-separated list without empty entries")
+        if len(selected) != len(set(selected)):
+            raise ValueError("scenes must not contain duplicates")
+        # `stress` expands to every stress scene; do not silently run an explicitly
+        # selected member twice when the alias and one of its members are combined.
+        if "stress" in selected:
+            overlap = sorted(set(selected) & set(stress_scenes.NAMES))
+            if overlap:
+                raise ValueError(
+                    "scenes select stress entries twice (via 'stress' and explicitly): " + ", ".join(overlap)
+                )
+        known = {scene[0] for scene in SCENES} | set(stress_scenes.NAMES) | {"stress"}
+        unknown = sorted(set(selected) - known)
+        if unknown:
+            raise ValueError("unknown scene(s): " + ", ".join(unknown))
+
+    for name, value, allow_zero in (
+        ("seconds", args.seconds, False),
+        ("settle", args.settle, True),
+        ("timeout", args.timeout, False),
+    ):
+        if not math.isfinite(value) or (value < 0 if allow_zero else value <= 0):
+            relation = ">= 0" if allow_zero else "> 0"
+            raise ValueError(f"{name} must be finite and {relation}")
+
+    if args.repeats < 1:
+        raise ValueError("repeats must be at least 1")
+    if args.server_bots < 0:
+        raise ValueError("server-bots must be >= 0")
+    if args.server_bots and not args.server:
+        raise ValueError("--server-bots requires --server")
+
+    validate_label(args.label)
+    # The name written for each resolution is also accepted by --table later.
+    # Check the derived names now, before the benchmark creates work files.
+    for width, height in sizes:
+        validate_label(size_label(args.label, width, height))
 
 
 def size_label(label, width, height):
@@ -327,7 +418,7 @@ def size_label(label, width, height):
 
 def scene_list(args):
     """(name, from, to, pitch) of the scenes asked for: the flights, then the stress scenes ("stress" is all of them)."""
-    picked = args.scenes.split(",") if args.scenes else [s[0] for s in SCENES]
+    picked = [s.strip() for s in args.scenes.split(",")] if args.scenes else [s[0] for s in SCENES]
     if "stress" in picked:
         picked += stress_scenes.NAMES
     # --server-bots adds the crowd scene over the bots.
@@ -1090,6 +1181,8 @@ def report(args, distance, runs, app):
 
 def table(labels):
     """Markdown tables comparing saved runs (benchmarks/perf/<label>-rd<N>.json): means and 95% CIs."""
+    for label in labels:
+        validate_label(label)
     runs = {}
     for label in labels:
         for path in sorted((ROOT / "benchmarks/perf").glob(f"{label}-rd*.json"), key=lambda p: int(p.stem.rsplit("rd", 1)[1])):
@@ -1204,12 +1297,16 @@ def main():
             p.error(str(error))
         return
     args.label = args.label or f"{args.game}-{platform.node().split('.')[0]}"
+    try:
+        validate_benchmark_args(args)
+    except ValueError as error:
+        p.error(str(error))
     WORK.mkdir(parents=True, exist_ok=True)
     run = {"horizon": run_horizon, "neoforge": run_neoforge}.get(args.game, run_vanilla)
     label = args.label
     for args.width, args.height in parse_sizes(args.sizes):
         args.label = size_label(label, args.width, args.height)
-        for d in [int(x) for x in args.distances.split(",")]:
+        for d in parse_distances(args.distances):
             runs = []
             with contextlib.ExitStack() as stack:
                 if args.server:

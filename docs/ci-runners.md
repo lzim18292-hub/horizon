@@ -58,6 +58,13 @@ would wait for it. Back to the default when they return.
 
 ## Forks
 
+A pull request opened inside a fork is also a fork-owned run, even when its head and base branches are in the same
+repository. The private `horizon-checks` and `horizon-light` fleets belong to `horizon-rust/horizon`; they are not
+available to a fork. The workflow therefore selects GitHub-hosted Ubuntu runners unless `github.repository` is the
+canonical repository. This is separate from the guard that prevents an external fork's code from reaching the private
+runner fleet. The manual `windows-arm64` and `jfr-analysis` jobs are also restricted to the canonical repository,
+so dispatching `checks` from a fork does not wait for its private ARM64 or game runners.
+
 A fork's pull request runs on GitHub's runners (since 2026-11-10). GitHub gives it no repository variable, so
 `SELF_HOSTED_CI` can't move it: when the desktop was off or paused, the required `verify` of every fork's pull
 request ending in 0 or 1 waited for it until GitHub failed the job a day later, and re-running it waited again

@@ -155,10 +155,6 @@ class PerfBenchStatsTests(unittest.TestCase):
 
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class WaitLoadedTests(unittest.TestCase):
     """wait_loaded on a scripted game with a fake clock: one status per 50 ms poll."""
 
@@ -401,3 +397,122 @@ class StressSceneTests(unittest.TestCase):
                                 self.assertTrue(covered(x, y, z), (name, line))
                 elif words[0] == "setblock":
                     self.assertTrue(covered(*map(int, words[1:4])), (name, line))
+
+
+
+class BenchmarkInputValidationTests(unittest.TestCase):
+    @staticmethod
+    def args(**overrides):
+        import argparse
+        values = {
+            "sizes": "1280x720,1920x1080",
+            "distances": "8,16,32",
+            "scenes": None,
+            "seconds": 12.0,
+            "settle": 2.0,
+            "timeout": 300.0,
+            "repeats": 3,
+            "server_bots": 0,
+            "server": None,
+            "label": "safe-run",
+        }
+        values.update(overrides)
+        return argparse.Namespace(**values)
+
+    def test_parse_sizes_accepts_valid_unique_pairs(self):
+        from tools.perf_bench import parse_sizes
+        self.assertEqual(parse_sizes("1280x720,1920X1080"), [(1280, 720), (1920, 1080)])
+
+    def test_parse_sizes_rejects_malformed_empty_nonpositive_and_duplicate_values(self):
+        from tools.perf_bench import parse_sizes
+        for value in ("", " ", "1280x720,", ",1280x720", "1280", "1280x720x2",
+                      "0x720", "1280x0", "1280x720,1280X720"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                parse_sizes(value)
+
+    def test_parse_distances_accepts_positive_unique_integers(self):
+        from tools.perf_bench import parse_distances
+        self.assertEqual(parse_distances("8, 16,32"), [8, 16, 32])
+
+    def test_parse_distances_rejects_empty_invalid_nonpositive_and_duplicate_values(self):
+        from tools.perf_bench import parse_distances
+        for value in ("", " ", "8,", ",8", "8.0", "-8", "0", "8,08", "abc"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                parse_distances(value)
+
+    def test_scene_names_are_checked_before_a_run(self):
+        from tools.perf_bench import validate_benchmark_args
+        from tools import stress_scenes
+        validate_benchmark_args(self.args(scenes="village,stress"))
+        validate_benchmark_args(self.args(scenes=stress_scenes.NAMES[0]))
+        spaced = self.args(scenes="village, forest")
+        validate_benchmark_args(spaced)
+        import tools.perf_bench as pb
+        self.assertEqual([scene[0] for scene in pb.scene_list(spaced)], ["village", "forest"])
+        for value in ("unknown", "village,", ",village", "village,village",
+                      "stress,stress_mobs", "stress_mobs,stress"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                validate_benchmark_args(self.args(scenes=value))
+
+    def test_non_finite_or_invalid_durations_and_repeat_counts_are_rejected(self):
+        from tools.perf_bench import validate_benchmark_args
+        invalid = (
+            {"seconds": float("nan")}, {"seconds": float("inf")}, {"seconds": 0},
+            {"settle": float("nan")}, {"settle": float("inf")}, {"settle": -0.1},
+            {"timeout": float("nan")}, {"timeout": float("inf")}, {"timeout": 0},
+            {"repeats": 0}, {"repeats": -1},
+        )
+        for values in invalid:
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                validate_benchmark_args(self.args(**values))
+
+    def test_server_bot_requirements_are_checked(self):
+        from tools.perf_bench import validate_benchmark_args
+        validate_benchmark_args(self.args(server="horizon", server_bots=1))
+        for values in ({"server_bots": -1}, {"server_bots": 1, "server": None}):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                validate_benchmark_args(self.args(**values))
+
+    def test_label_rejects_path_traversal_and_overlong_values(self):
+        from tools.perf_bench import validate_benchmark_args
+        for label in ("../escape", "/absolute", "has spaces", "", "x" * 81):
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                validate_benchmark_args(self.args(label=label))
+
+    def test_derived_size_labels_stay_within_the_report_label_limit(self):
+        from tools.perf_bench import validate_benchmark_args
+
+        # A maximum-length base label remains valid when no suffix is added.
+        validate_benchmark_args(self.args(sizes="1280x720", label="x" * 80))
+        # The default second resolution adds "-1080p", so the same base label
+        # would create a report that table() itself refuses to read.
+        with self.assertRaises(ValueError):
+            validate_benchmark_args(self.args(label="x" * 80))
+        with self.assertRaises(ValueError):
+            validate_benchmark_args(self.args(sizes="1280x720,2560x1440", label="x" * 75))
+        validate_benchmark_args(self.args(label="x" * 74))
+
+    def test_table_rejects_pathlike_labels_before_reading_reports(self):
+        from tools.perf_bench import table
+        for label in ("../escape", "/absolute", "has spaces", ""):
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                table([label])
+
+    def test_main_rejects_invalid_input_before_creating_work_directory(self):
+        import tempfile
+        from pathlib import Path
+        from unittest import mock
+        import tools.perf_bench as pb
+        with tempfile.TemporaryDirectory() as tmp:
+            work = Path(tmp) / "must-not-exist"
+            with (
+                mock.patch.object(pb, "WORK", work),
+                mock.patch("sys.argv", ["perf_bench.py", "--distances", "8,0"]),
+                self.assertRaises(SystemExit) as error,
+            ):
+                pb.main()
+            self.assertEqual(error.exception.code, 2)
+            self.assertFalse(work.exists())
+
+if __name__ == "__main__":
+    unittest.main()
