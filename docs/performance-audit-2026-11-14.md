@@ -85,7 +85,7 @@ These code paths already contain substantial optimizations. A broad rewrite, arb
 
 ## Current branch verification status
 
-The current branch work so far changes benchmark input validation and the direct-test entrypoint. The input-validation tests have been added, and the direct `unittest.main()` guard is now after all test classes.
+The current branch work so far changes benchmark input validation and the direct-test entrypoint. The input-validation tests have been added, the direct `unittest.main()` guard is now after all test classes, and every resolution-derived report label is checked against the same length rule used by `--table`.
 
 However, the connected GitHub API currently returns no Actions runs for the branch/PR and no commit status checks for the latest commit. No Desktop Commander device is connected, and this session has no repository-local Rust/Python checkout. Therefore:
 
