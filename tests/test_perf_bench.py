@@ -155,10 +155,6 @@ class PerfBenchStatsTests(unittest.TestCase):
 
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class WaitLoadedTests(unittest.TestCase):
     """wait_loaded on a scripted game with a fake clock: one status per 50 ms poll."""
 
@@ -503,3 +499,6 @@ class BenchmarkInputValidationTests(unittest.TestCase):
                 pb.main()
             self.assertEqual(error.exception.code, 2)
             self.assertFalse(work.exists())
+
+if __name__ == "__main__":
+    unittest.main()
