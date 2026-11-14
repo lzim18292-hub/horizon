@@ -373,6 +373,14 @@ def validate_benchmark_args(args):
             raise ValueError("scenes must be a non-empty comma-separated list without empty entries")
         if len(selected) != len(set(selected)):
             raise ValueError("scenes must not contain duplicates")
+        # `stress` expands to every stress scene; do not silently run an explicitly
+        # selected member twice when the alias and one of its members are combined.
+        if "stress" in selected:
+            overlap = sorted(set(selected) & set(stress_scenes.NAMES))
+            if overlap:
+                raise ValueError(
+                    "scenes select stress entries twice (via 'stress' and explicitly): " + ", ".join(overlap)
+                )
         known = {scene[0] for scene in SCENES} | set(stress_scenes.NAMES) | {"stress"}
         unknown = sorted(set(selected) - known)
         if unknown:
