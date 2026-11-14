@@ -478,6 +478,19 @@ class BenchmarkInputValidationTests(unittest.TestCase):
             with self.subTest(label=label), self.assertRaises(ValueError):
                 validate_benchmark_args(self.args(label=label))
 
+    def test_derived_size_labels_stay_within_the_report_label_limit(self):
+        from tools.perf_bench import validate_benchmark_args
+
+        # A maximum-length base label remains valid when no suffix is added.
+        validate_benchmark_args(self.args(sizes="1280x720", label="x" * 80))
+        # The default second resolution adds "-1080p", so the same base label
+        # would create a report that table() itself refuses to read.
+        with self.assertRaises(ValueError):
+            validate_benchmark_args(self.args(label="x" * 80))
+        with self.assertRaises(ValueError):
+            validate_benchmark_args(self.args(sizes="1280x720,2560x1440", label="x" * 75))
+        validate_benchmark_args(self.args(label="x" * 74))
+
     def test_table_rejects_pathlike_labels_before_reading_reports(self):
         from tools.perf_bench import table
         for label in ("../escape", "/absolute", "has spaces", ""):
