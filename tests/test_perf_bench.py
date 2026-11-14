@@ -485,9 +485,7 @@ class BenchmarkInputValidationTests(unittest.TestCase):
         import tools.perf_bench as pb
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "must-not-exist"
-            with mock.patch.object(pb, "WORK", work), \\
-                    mock.patch("sys.argv", ["perf_bench.py", "--distances", "8,0"]), \\
-                    self.assertRaises(SystemExit) as error:
+            with mock.patch.object(pb, "WORK", work), mock.patch("sys.argv", ["perf_bench.py", "--distances", "8,0"]), self.assertRaises(SystemExit) as error:
                 pb.main()
             self.assertEqual(error.exception.code, 2)
             self.assertFalse(work.exists())
