@@ -449,6 +449,10 @@ class BenchmarkInputValidationTests(unittest.TestCase):
         from tools import stress_scenes
         validate_benchmark_args(self.args(scenes="village,stress"))
         validate_benchmark_args(self.args(scenes=stress_scenes.NAMES[0]))
+        spaced = self.args(scenes="village, forest")
+        validate_benchmark_args(spaced)
+        import tools.perf_bench as pb
+        self.assertEqual([scene[0] for scene in pb.scene_list(spaced)], ["village", "forest"])
         for value in ("unknown", "village,", ",village", "village,village"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 validate_benchmark_args(self.args(scenes=value))
@@ -485,7 +489,11 @@ class BenchmarkInputValidationTests(unittest.TestCase):
         import tools.perf_bench as pb
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp) / "must-not-exist"
-            with mock.patch.object(pb, "WORK", work), mock.patch("sys.argv", ["perf_bench.py", "--distances", "8,0"]), self.assertRaises(SystemExit) as error:
+            with (
+                mock.patch.object(pb, "WORK", work),
+                mock.patch("sys.argv", ["perf_bench.py", "--distances", "8,0"]),
+                self.assertRaises(SystemExit) as error,
+            ):
                 pb.main()
             self.assertEqual(error.exception.code, 2)
             self.assertFalse(work.exists())
