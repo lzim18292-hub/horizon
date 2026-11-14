@@ -449,7 +449,8 @@ class BenchmarkInputValidationTests(unittest.TestCase):
         validate_benchmark_args(spaced)
         import tools.perf_bench as pb
         self.assertEqual([scene[0] for scene in pb.scene_list(spaced)], ["village", "forest"])
-        for value in ("unknown", "village,", ",village", "village,village"):
+        for value in ("unknown", "village,", ",village", "village,village",
+                      "stress,stress_mobs", "stress_mobs,stress"):
             with self.subTest(value=value), self.assertRaises(ValueError):
                 validate_benchmark_args(self.args(scenes=value))
 
