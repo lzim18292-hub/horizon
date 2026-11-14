@@ -351,6 +351,17 @@ def parse_distances(text):
     return distances
 
 
+def validate_label(label):
+    """Keep report labels safe as single filename components."""
+    if not isinstance(label, str) or not re.fullmatch(
+        r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", label
+    ):
+        raise ValueError(
+            "label must be 1-80 characters: letters, digits, dot, underscore or hyphen; "
+            "start with a letter or digit"
+        )
+
+
 def validate_benchmark_args(args):
     """Reject invalid benchmark inputs before creating work files or launching games."""
     parse_sizes(args.sizes)
@@ -382,13 +393,7 @@ def validate_benchmark_args(args):
         raise ValueError("server-bots must be >= 0")
     if args.server_bots and not args.server:
         raise ValueError("--server-bots requires --server")
-    if not re.fullmatch(
-        r"[A-Za-z0-9][A-Za-z0-9._-]{0,79}", args.label
-    ):
-        raise ValueError(
-            "label must be 1-80 characters: letters, digits, dot, underscore or hyphen; "
-            "start with a letter or digit"
-        )
+    validate_label(args.label)
 
 
 def size_label(label, width, height):
@@ -1163,6 +1168,8 @@ def report(args, distance, runs, app):
 
 def table(labels):
     """Markdown tables comparing saved runs (benchmarks/perf/<label>-rd<N>.json): means and 95% CIs."""
+    for label in labels:
+        validate_label(label)
     runs = {}
     for label in labels:
         for path in sorted((ROOT / "benchmarks/perf").glob(f"{label}-rd*.json"), key=lambda p: int(p.stem.rsplit("rd", 1)[1])):
