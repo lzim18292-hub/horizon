@@ -364,7 +364,7 @@ def validate_label(label):
 
 def validate_benchmark_args(args):
     """Reject invalid benchmark inputs before creating work files or launching games."""
-    parse_sizes(args.sizes)
+    sizes = parse_sizes(args.sizes)
     parse_distances(args.distances)
 
     if args.scenes is not None:
@@ -393,7 +393,12 @@ def validate_benchmark_args(args):
         raise ValueError("server-bots must be >= 0")
     if args.server_bots and not args.server:
         raise ValueError("--server-bots requires --server")
+
     validate_label(args.label)
+    # The name written for each resolution is also accepted by --table later.
+    # Check the derived names now, before the benchmark creates work files.
+    for width, height in sizes:
+        validate_label(size_label(args.label, width, height))
 
 
 def size_label(label, width, height):
