@@ -482,6 +482,12 @@ class BenchmarkInputValidationTests(unittest.TestCase):
             with self.subTest(label=label), self.assertRaises(ValueError):
                 validate_benchmark_args(self.args(label=label))
 
+    def test_table_rejects_pathlike_labels_before_reading_reports(self):
+        from tools.perf_bench import table
+        for label in ("../escape", "/absolute", "has spaces", ""):
+            with self.subTest(label=label), self.assertRaises(ValueError):
+                table([label])
+
     def test_main_rejects_invalid_input_before_creating_work_directory(self):
         import tempfile
         from pathlib import Path
