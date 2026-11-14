@@ -83,6 +83,10 @@ These code paths already contain substantial optimizations. A broad rewrite, arb
 4. **Protect memory/startup gains:** keep RSS and startup in the acceptance report.
 5. **Do not introduce C++ yet:** first isolate a CPU hotspot, benchmark an equivalent Rust implementation, then compare any FFI cost against a native C++ prototype.
 
+## Benchmark input edge cases found during review
+
+The final input review found one alias-expansion case beyond literal duplicate detection: selecting `stress` together with an individual member such as `stress_mobs` caused that stress scene to be selected twice. `validate_benchmark_args` now rejects that overlap before the run begins, and the regression cases cover both argument orders. The repository tests have not yet been executed in this session.
+
 ## Current branch verification status
 
 The current branch work so far changes benchmark input validation and the direct-test entrypoint. The input-validation tests have been added, the direct `unittest.main()` guard is now after all test classes, and every resolution-derived report label is checked against the same length rule used by `--table`.
